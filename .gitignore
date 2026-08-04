@@ -21,6 +21,9 @@ venv/
 *.csv
 *.db
 
+# Logs runtime
+logs/
+
 # IDE
 .vscode/
 .idea/
