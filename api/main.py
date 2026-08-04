@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from utils.explanation import generate_explanation
+
 from fastapi import FastAPI
+
 import joblib
 import os
 import pandas as pd
@@ -8,7 +10,7 @@ import pandas as pd
 
 app = FastAPI(
     title="Fraud AI Detection API",
-    version="3.0"
+    version="4.0"
 )
 
 
@@ -31,16 +33,18 @@ class TransactionRequest(BaseModel):
 
 
 # ==========================
-# LOAD MODEL
+# LOAD ML PIPELINE
 # ==========================
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+BASE_DIR = os.path.dirname(
+    os.path.dirname(__file__)
+)
 
 
 model_path = os.path.join(
     BASE_DIR,
     "model",
-    "fraud_model.pkl"
+    "fraud_pipeline.pkl"
 )
 
 
@@ -56,11 +60,14 @@ model = joblib.load(model_path)
 def home():
 
     return {
-        "message": "Fraud AI Monitoring System Running",
-        "model": "RandomForest",
-        "version": "3.0"
-    }
 
+        "message": "Fraud AI Monitoring System Running",
+
+        "model": "RandomForest Pipeline",
+
+        "version": "4.0"
+
+    }
 
 
 
@@ -69,8 +76,12 @@ def home():
 # ==========================
 
 @app.post("/predict")
-def predict(transaction_data: TransactionRequest):
+def predict(
+    transaction_data: TransactionRequest
+):
 
+
+    # Extraction données
 
     amount = transaction_data.amount
 
@@ -84,18 +95,26 @@ def predict(transaction_data: TransactionRequest):
 
 
 
-    # Création dataframe compatible modèle
+    # Création DataFrame
 
     transaction = pd.DataFrame(
+
         [
             {
+
                 "amount": amount,
+
                 "country": country,
+
                 "time": time,
+
                 "device": device,
+
                 "merchant": merchant
+
             }
         ]
+
     )
 
 
@@ -104,10 +123,15 @@ def predict(transaction_data: TransactionRequest):
     # MODEL PREDICTION
     # ==========================
 
-    prediction = model.predict(transaction)
+
+    prediction = model.predict(
+        transaction
+    )
 
 
-    probability = model.predict_proba(transaction)[0][1]
+    probability = model.predict_proba(
+        transaction
+    )[0][1]
 
 
     fraud_probability = round(
@@ -123,7 +147,7 @@ def predict(transaction_data: TransactionRequest):
 
 
     # ==========================
-    # RISK ANALYSIS
+    # RISK ENGINE
     # ==========================
 
     if risk_score >= 80:
@@ -193,6 +217,7 @@ def predict(transaction_data: TransactionRequest):
 
         "transaction": {
 
+
             "amount": amount,
 
             "country": country,
@@ -207,6 +232,7 @@ def predict(transaction_data: TransactionRequest):
 
 
         "analysis": {
+
 
             "fraud_probability": fraud_probability,
 

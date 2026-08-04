@@ -1,28 +1,24 @@
 import pandas as pd
-import numpy as np
-import os
-import json
 import joblib
+import os
 
 from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+
+from sklearn.preprocessing import OneHotEncoder
 
 from sklearn.ensemble import RandomForestClassifier
+
 from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    roc_auc_score,
     classification_report,
-    confusion_matrix
+    confusion_matrix,
+    roc_auc_score
 )
 
 
 # ==========================
-# PATHS
+# PATH
 # ==========================
 
 BASE_DIR = os.path.dirname(__file__)
@@ -34,19 +30,10 @@ DATA_PATH = os.path.join(
     "transactions.csv"
 )
 
+
 MODEL_PATH = os.path.join(
     BASE_DIR,
-    "fraud_model.pkl"
-)
-
-METRICS_PATH = os.path.join(
-    BASE_DIR,
-    "metrics.json"
-)
-
-IMPORTANCE_PATH = os.path.join(
-    BASE_DIR,
-    "feature_importance.csv"
+    "fraud_pipeline.pkl"
 )
 
 
@@ -61,6 +48,7 @@ df = pd.read_csv(DATA_PATH)
 
 print("\nDataset:")
 print(df.head())
+
 
 print("\nClasses:")
 print(df["is_fraud"].value_counts())
@@ -88,12 +76,6 @@ y = df["is_fraud"]
 # PREPROCESSING
 # ==========================
 
-
-numeric_features = [
-    "amount"
-]
-
-
 categorical_features = [
     "country",
     "time",
@@ -103,22 +85,20 @@ categorical_features = [
 
 
 preprocessor = ColumnTransformer(
+
     transformers=[
 
         (
-            "num",
-            "passthrough",
-            numeric_features
-        ),
-
-        (
-            "cat",
+            "categorical",
             OneHotEncoder(
                 handle_unknown="ignore"
             ),
             categorical_features
         )
-    ]
+
+    ],
+
+    remainder="passthrough"
 )
 
 
@@ -126,25 +106,20 @@ preprocessor = ColumnTransformer(
 # MODEL
 # ==========================
 
-
-classifier = RandomForestClassifier(
+model = RandomForestClassifier(
 
     n_estimators=300,
 
-    max_depth=15,
-
-    min_samples_split=5,
-
-    class_weight="balanced",
+    max_depth=None,
 
     random_state=42,
 
-    n_jobs=-1
+    class_weight="balanced"
+
 )
 
 
-
-model = Pipeline(
+pipeline = Pipeline(
 
     steps=[
 
@@ -154,8 +129,8 @@ model = Pipeline(
         ),
 
         (
-            "classifier",
-            classifier
+            "model",
+            model
         )
 
     ]
@@ -163,15 +138,14 @@ model = Pipeline(
 )
 
 
-
 # ==========================
-# TRAIN TEST SPLIT
+# TRAIN TEST
 # ==========================
-
 
 X_train, X_test, y_train, y_test = train_test_split(
 
     X,
+
     y,
 
     test_size=0.2,
@@ -179,105 +153,62 @@ X_train, X_test, y_train, y_test = train_test_split(
     random_state=42,
 
     stratify=y
-)
 
+)
 
 
 print("\nTraining model...")
 
 
-model.fit(
-
+pipeline.fit(
     X_train,
-
     y_train
-
 )
-
 
 
 # ==========================
 # EVALUATION
 # ==========================
 
+pred = pipeline.predict(X_test)
 
-prediction = model.predict(X_test)
-
-
-probability = model.predict_proba(X_test)[:,1]
-
-
-accuracy = accuracy_score(
-    y_test,
-    prediction
-)
-
-
-precision = precision_score(
-    y_test,
-    prediction
-)
-
-
-recall = recall_score(
-    y_test,
-    prediction
-)
-
-
-f1 = f1_score(
-    y_test,
-    prediction
-)
-
-
-roc_auc = roc_auc_score(
-    y_test,
-    probability
-)
-
+proba = pipeline.predict_proba(X_test)[:,1]
 
 
 print("\n===== MODEL PERFORMANCE =====")
 
-
 print(
     classification_report(
         y_test,
-        prediction
+        pred
     )
 )
 
 
 print(
     "ROC-AUC:",
-    roc_auc
+    roc_auc_score(
+        y_test,
+        proba
+    )
 )
-
 
 
 print(
     "\nConfusion Matrix:"
 )
 
-
 print(
     confusion_matrix(
         y_test,
-        prediction
+        pred
     )
 )
 
 
-
-# ==========================
-# CROSS VALIDATION
-# ==========================
-
-
 cv = cross_val_score(
 
-    model,
+    pipeline,
 
     X,
 
@@ -296,15 +227,13 @@ print(
 )
 
 
-
 # ==========================
-# SAVE MODEL
+# SAVE
 # ==========================
-
 
 joblib.dump(
 
-    model,
+    pipeline,
 
     MODEL_PATH
 
@@ -315,54 +244,6 @@ print(
     "\nModel saved:",
     MODEL_PATH
 )
-
-
-
-# ==========================
-# SAVE METRICS
-# ==========================
-
-
-metrics = {
-
-
-    "accuracy": accuracy,
-
-    "precision": precision,
-
-    "recall": recall,
-
-    "f1_score": f1,
-
-    "roc_auc": roc_auc,
-
-    "cross_validation_f1": cv.mean()
-
-}
-
-
-
-with open(
-    METRICS_PATH,
-    "w"
-) as file:
-
-    json.dump(
-
-        metrics,
-
-        file,
-
-        indent=4
-
-    )
-
-
-
-print(
-    "Metrics saved"
-)
-
 
 
 print(
