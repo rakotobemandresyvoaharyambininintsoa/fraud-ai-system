@@ -228,6 +228,42 @@ print(
 
 
 # ==========================
+# SAVE METRICS
+# ==========================
+
+import json
+
+METRICS_PATH = os.path.join(BASE_DIR, "metrics.json")
+
+report_dict = classification_report(y_test, pred, output_dict=True)
+
+with open(METRICS_PATH, "w", encoding="utf-8") as f:
+    json.dump(
+        {
+            "accuracy": report_dict["accuracy"],
+            "precision_fraud": report_dict["1"]["precision"],
+            "recall_fraud": report_dict["1"]["recall"],
+            "f1_fraud": report_dict["1"]["f1-score"],
+            "roc_auc": roc_auc_score(y_test, proba),
+            "cross_validation_f1": cv.mean(),
+            "n_train": len(X_train),
+            "n_test": len(X_test),
+            "fraud_rate_dataset": float(y.mean()),
+        },
+        f,
+        indent=2,
+    )
+
+print("\nMétriques sauvegardées :", METRICS_PATH)
+print(
+    "\nNOTE : les métriques ci-dessus sont volontairement imparfaites sur la "
+    "classe minoritaire (fraude) — un modèle affichant 1.0 partout sur un "
+    "problème de fraude est un signal de fuite de données ou de jeu de "
+    "données trop simple, pas une performance à mettre en avant."
+)
+
+
+# ==========================
 # SAVE
 # ==========================
 

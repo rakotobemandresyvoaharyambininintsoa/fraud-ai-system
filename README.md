@@ -1,30 +1,27 @@
-# Fraud Detection API
+# Fraud AI Detection System
 
-Système de détection d'anomalies sur transactions bancaires, combinant un modèle de machine learning non-supervisé (Isolation Forest), une API REST (FastAPI) et un dashboard de test (Streamlit).
+Système de détection de fraude bancaire combinant un modèle de machine learning supervisé (RandomForest), une explication de chaque décision par valeurs SHAP réelles, une API REST (FastAPI) et un dashboard de test (Streamlit).
 
-## ⚠️ Sur les données et les résultats
+## ⚠️ Sur les données et les métriques
 
-Ce projet utilise des **données synthétiques générées volontairement** (`data/generate_data.py`) — aucune donnée bancaire réelle n'est utilisée ni publiée, pour des raisons évidentes de confidentialité. Le générateur crée une fraude clairement séparable du comportement normal (montant très supérieur à l'habitude de l'utilisateur, pays inhabituel, nouvel appareil), ce qui donne des métriques d'évaluation excellentes (AUC proche de 1.0) sur ces données de test. **Ces métriques ne préjugent pas de la performance sur des données réelles**, où les patterns de fraude sont plus subtils et le signal plus faible. Ce projet est une démonstration d'architecture (pipeline ML → API → dashboard, avec de bonnes pratiques d'ingénierie), pas un modèle validé pour la production.
+Ce projet utilise des **données synthétiques générées volontairement** (`data/generate_data.py`) — aucune donnée bancaire réelle n'est utilisée, pour des raisons évidentes de confidentialité. Le label de fraude est généré de façon **probabiliste** (facteurs de risque combinés + bruit), pas par un simple seuil déterministe — un modèle qui atteint 100% de précision/rappel sur un problème de fraude est un signal de fuite de données ou de jeu de données trop simple, pas une performance à revendiquer. Les métriques actuelles (`model/metrics.json`, régénérées à chaque entraînement) sont volontairement imparfaites sur la classe minoritaire (la fraude), ce qui est plus honnête et plus réaliste.
 
 ## Architecture
 
 ```
-data/          → génération de données synthétiques (transactions + profils utilisateurs)
-model/         → entraînement du modèle Isolation Forest, avec évaluation
+data/          → génération de données synthétiques (transactions bancaires)
+model/         → pipeline scikit-learn (OneHotEncoder + RandomForest), évaluation, métriques
 api/           → API FastAPI de scoring en temps réel (authentifiée)
+utils/         → explication des prédictions par valeurs SHAP réelles
 app/           → dashboard Streamlit pour tester l'API manuellement
 tests/         → tests automatisés de l'API (pytest)
 ```
 
-## Ce que le modèle utilise réellement
+## Ce que fait réellement le modèle
 
-Contrairement à une version initiale qui ne se basait que sur le montant brut, le modèle actuel utilise :
-- le montant de la transaction,
-- l'heure de la transaction,
-- si l'appareil utilisé diffère de l'appareil habituel de l'utilisateur,
-- l'écart entre le montant et le comportement habituel de l'utilisateur.
+Le pipeline (`model/train_model.py`) encode les variables catégorielles (pays, appareil, marchand, moment de la journée) via `OneHotEncoder`, puis entraîne un `RandomForestClassifier` supervisé sur un jeu d'entraînement/test séparé, avec validation croisée.
 
-Le pays et l'appareil déclarés influencent également le score final via des règles explicites (pays à risque, changement d'appareil), en plus d'alimenter le modèle — l'API renvoie la liste des facteurs de risque détectés (`reasons`) pour rendre chaque score explicable.
+**Chaque prédiction est expliquée par les vraies valeurs SHAP** calculées pour cette transaction précise (`utils/shap_explanation.py`) — pas par des règles fixes. Une version précédente de ce projet expliquait les décisions via des seuils codés en dur, dont un qui désignait un pays réel comme intrinsèquement "à risque" : c'était à la fois factuellement incorrect (le modèle n'apprend aucun lien réel avec ce pays) et problématique dans la forme. Ça n'existe plus : l'explication ne cite un pays, un appareil ou un marchand que si le modèle l'a réellement identifié comme facteur déterminant pour cette transaction précise.
 
 ## Démarrage rapide
 
@@ -39,7 +36,7 @@ cp .env.example .env
 # 1. Générer les données synthétiques
 python data/generate_data.py
 
-# 2. Entraîner le modèle (affiche precision/recall/AUC)
+# 2. Entraîner le modèle (affiche precision/recall/AUC, sauvegarde les métriques)
 python model/train_model.py
 
 # 3. Lancer l'API
@@ -65,26 +62,33 @@ Le modèle est entraîné automatiquement au moment du build de l'image.
 ## Tester l'API
 
 ```bash
-curl -X POST http://127.0.0.1:8000/transaction/ \
+curl -X POST http://127.0.0.1:8000/predict \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <votre clé>" \
-  -d '{"user_id": 1, "amount": 900000, "country": "XX", "device": "tablet"}'
+  -d '{"amount": 9800, "country": "XX", "time": "night", "device": "desktop", "merchant": "unknown"}'
 ```
 
 Réponse :
 ```json
 {
-  "user_id": 1,
-  "amount": 900000.0,
-  "country": "XX",
-  "device": "tablet",
-  "risk_score": 98.6,
-  "status": "FRAUD",
-  "reasons": [
-    "Pays inhabituel ou à risque (XX)",
-    "Appareil différent de l'appareil habituel",
-    "Montant très supérieur au comportement habituel de l'utilisateur"
-  ]
+  "transaction": { "amount": 9800.0, "country": "XX", "time": "night", "device": "desktop", "merchant": "unknown" },
+  "analysis": {
+    "fraud_probability": 0.7033,
+    "risk_score": 70,
+    "risk_level": "MEDIUM",
+    "status": "FRAUD",
+    "decision": "REVIEW",
+    "ai_explanation": {
+      "summary": "Cette transaction présente des éléments suspects.",
+      "risk_factors": [
+        "le pays de la transaction (XX)",
+        "le marchand (unknown)",
+        "le moment de la transaction (night)"
+      ],
+      "recommendation": "Envoyer la transaction en revue manuelle.",
+      "shap_details": [ /* impact SHAP brut de chaque feature, pour audit */ ]
+    }
+  }
 }
 ```
 
@@ -94,19 +98,19 @@ Réponse :
 pytest tests/ -v
 ```
 
-7 tests couvrent : l'authentification (clé API requise/invalide), la validation des entrées (montant négatif rejeté), la cohérence du scoring (une transaction clairement frauduleuse doit scorer plus haut qu'une transaction normale — le bug initial que ce test aurait immédiatement détecté), et la robustesse face à un utilisateur inconnu.
+8 tests couvrent : l'authentification (clé API requise/invalide), la validation des entrées (montant négatif rejeté), la cohérence du scoring (une transaction suspecte doit scorer plus haut qu'une transaction normale), la robustesse face à des valeurs inconnues, **et un garde-fou explicite qui vérifie que l'explication ne désigne jamais un pays réel comme intrinsèquement risqué** — pour empêcher la régression corrigée dans ce projet de revenir sans qu'on s'en rende compte.
 
 ## Sécurité
 
-- Authentification par clé API (header `X-API-Key`), à surcharger via la variable d'environnement `FRAUD_API_KEY` — jamais de valeur en dur en production.
-- Validation stricte des entrées (Pydantic) : montant positif obligatoire, heure entre 0 et 23.
-- Chaque transaction scorée est journalisée (`logs/transactions_scored.log`) pour la traçabilité — indispensable dans un contexte de conformité bancaire.
+- Authentification par clé API (header `X-API-Key`), à surcharger via `FRAUD_API_KEY` — jamais de valeur en dur en production.
+- Validation stricte des entrées (Pydantic) : montant strictement positif.
+- Chaque transaction scorée est journalisée (`logs/transactions_scored.log`) pour la traçabilité.
 
 ## Limites connues et pistes d'amélioration
 
-- Modèle non-supervisé simple (Isolation Forest) : un vrai système de production combinerait plusieurs modèles, des règles métier plus riches, et un ré-entraînement périodique sur des données réelles labellisées a posteriori.
-- Les profils utilisateurs sont statiques (générés une fois) ; un système réel mettrait à jour le comportement habituel en continu (fenêtre glissante).
-- Pas de gestion de fuseau horaire réel pour le champ `hour`.
+- Données synthétiques : les performances ne préjugent pas du comportement sur des transactions réelles, où le signal est plus faible et plus subtil.
+- Un seul modèle testé (RandomForest) ; comparer avec XGBoost/LightGBM/régression logistique serait une extension naturelle.
+- Pas de base de données relationnelle (les transactions scorées sont journalisées en fichier plat, pas en base) ; pour un vrai système de production, une base type PostgreSQL avec tables `transactions`/`alerts`/`users` serait l'étape suivante logique.
 - Authentification par clé API unique — un système multi-clients voudrait une clé par consommateur, avec rotation et révocation.
 
 ## License

@@ -7,3 +7,4 @@ streamlit==1.60.0
 requests==2.34.2
 pydantic==2.13.4
 numpy==2.4.6
+shap==0.52.0

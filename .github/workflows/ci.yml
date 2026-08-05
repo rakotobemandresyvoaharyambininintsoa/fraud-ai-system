@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Generate synthetic data
+        run: python data/generate_data.py
+
+      - name: Train model
+        run: python model/train_model.py
+
+      - name: Run tests
+        env:
+          FRAUD_API_KEY: dev-only-key-change-me
+        run: pytest tests/ -v
