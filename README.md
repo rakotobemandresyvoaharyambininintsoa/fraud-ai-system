@@ -23,6 +23,12 @@ Le pipeline (`model/train_model.py`) encode les variables catégorielles (pays, 
 
 **Chaque prédiction est expliquée par les vraies valeurs SHAP** calculées pour cette transaction précise (`utils/shap_explanation.py`) — pas par des règles fixes. Une version précédente de ce projet expliquait les décisions via des seuils codés en dur, dont un qui désignait un pays réel comme intrinsèquement "à risque" : c'était à la fois factuellement incorrect (le modèle n'apprend aucun lien réel avec ce pays) et problématique dans la forme. Ça n'existe plus : l'explication ne cite un pays, un appareil ou un marchand que si le modèle l'a réellement identifié comme facteur déterminant pour cette transaction précise.
 
+### Protection contre les entrées hors distribution
+
+Un modèle de ML ne sait pas dire "je n'ai jamais vu ça" — testé manuellement avec un montant de 5 000 000 (~400x le maximum vu à l'entraînement) combiné à des valeurs jamais rencontrées (`country="UNKNOWN"`, `time="03AM"`, `merchant="black_market"`), l'API ressortait `SAFE` à 12% : le `OneHotEncoder(handle_unknown="ignore")` traite une valeur inconnue comme "aucune information", pas comme "suspect", et un `RandomForest` n'extrapole pas au-delà des montants qu'il a appris.
+
+L'API ajoute donc une couche de règles explicites (`detecter_anomalies_hors_distribution` dans `api/main.py`), en complément du modèle : toute transaction avec un montant très supérieur au maximum observé à l'entraînement, ou avec une valeur catégorielle jamais vue, est automatiquement classée à haut risque — indépendamment de ce que dit le modèle seul. C'est une pratique standard en production : le ML ne doit jamais être la seule ligne de défense.
+
 ## Démarrage rapide
 
 ```bash

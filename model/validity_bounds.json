@@ -1,0 +1,34 @@
+{
+  "amount_max_observed": 12602.18,
+  "known_values": {
+    "country": [
+      "France",
+      "Germany",
+      "Japan",
+      "Madagascar",
+      "UK",
+      "USA",
+      "XX",
+      "YY",
+      "ZZ"
+    ],
+    "time": [
+      "afternoon",
+      "evening",
+      "morning",
+      "night"
+    ],
+    "device": [
+      "desktop",
+      "mobile",
+      "tablet"
+    ],
+    "merchant": [
+      "amazon",
+      "bank",
+      "shopify",
+      "uber",
+      "unknown"
+    ]
+  }
+}

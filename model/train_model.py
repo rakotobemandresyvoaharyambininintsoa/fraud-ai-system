@@ -264,6 +264,38 @@ print(
 
 
 # ==========================
+# SAVE VALIDITY BOUNDS (pour détecter les entrées hors distribution)
+# ==========================
+#
+# Un OneHotEncoder(handle_unknown="ignore") traite une valeur jamais vue à
+# l'entraînement comme "aucune information", pas comme "suspect" — et un
+# RandomForest n'extrapole pas au-delà des montants qu'il a vus. Résultat
+# constaté en test manuel : un montant absurde (5 000 000, ~400x le max
+# d'entraînement) combiné à des valeurs inconnues ("UNKNOWN", "03AM",
+# "black_market") ressortait SAFE à 12% — le modèle ne "voyait" tout
+# simplement aucune de ces valeurs. Ces bornes permettent à l'API d'ajouter
+# une couche de règles explicites en complément du modèle (voir api/main.py).
+
+BOUNDS_PATH = os.path.join(BASE_DIR, "validity_bounds.json")
+
+with open(BOUNDS_PATH, "w", encoding="utf-8") as f:
+    json.dump(
+        {
+            "amount_max_observed": float(X["amount"].max()),
+            "known_values": {
+                col: sorted(X[col].astype(str).unique().tolist())
+                for col in categorical_features
+            },
+        },
+        f,
+        indent=2,
+        ensure_ascii=False,
+    )
+
+print("Bornes de validité sauvegardées :", BOUNDS_PATH)
+
+
+# ==========================
 # SAVE
 # ==========================
 

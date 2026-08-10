@@ -1,0 +1,11 @@
+{
+  "accuracy": 0.974,
+  "precision_fraud": 0.5625,
+  "recall_fraud": 0.6,
+  "f1_fraud": 0.5806451612903226,
+  "roc_auc": 0.9849140893470791,
+  "cross_validation_f1": 0.5709175393347798,
+  "n_train": 4000,
+  "n_test": 1000,
+  "fraud_rate_dataset": 0.03
+}
