@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Surveille les images Docker (dont le digest de python:3.11-slim)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Surveille aussi les dépendances Python (bonne pratique, tant qu'on y est)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Surveille les actions GitHub utilisées dans ci.yml
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
