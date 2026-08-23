@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
@@ -13,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -30,5 +33,5 @@ jobs:
 
       - name: Run tests
         env:
-          FRAUD_API_KEY: dev-only-key-change-me
+          FRAUD_API_KEY: ${{ secrets.FRAUD_API_KEY }}
         run: pytest tests/ -v
