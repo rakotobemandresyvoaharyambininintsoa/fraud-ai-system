@@ -1,15 +1,21 @@
-FROM python:3.14-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4
+FROM python@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4
+
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . /app
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.txt \
+    && groupadd -r appuser && useradd -r -g appuser appuser
 
-RUN python data/generate_data.py && python model/train_model.py
+COPY api/ ./api/
+COPY app/ ./app/
+COPY data/ ./data/
+COPY model/ ./model/
+COPY utils/ ./utils/
 
-RUN groupadd -r appuser && useradd -r -g appuser appuser \
+RUN python data/generate_data.py && python model/train_model.py \
     && chown -R appuser:appuser /app
+
 USER appuser
 
 EXPOSE 8000
