@@ -79,8 +79,8 @@ def charger_bornes():
 
 try:
     MODEL = charger_modele()
-except RuntimeError as e:
-    logger.error(str(e))
+except RuntimeError:
+    logger.exception("Échec du chargement du modèle")
     raise
 
 BORNES = charger_bornes()
@@ -132,7 +132,6 @@ def detecter_anomalies_hors_distribution(transaction_data: TransactionRequest) -
     ]
     raisons.extend(valeurs_inconnues)
 
-    nb_signaux = int(montant_extreme) + len(valeurs_inconnues)
     faut_escalader = montant_extreme or len(valeurs_inconnues) >= 2
 
     return faut_escalader, raisons
