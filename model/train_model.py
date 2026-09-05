@@ -114,12 +114,15 @@ model = RandomForestClassifier(
 
     random_state=42,
 
+    min_samples_leaf=2,
+    max_features="sqrt",
     class_weight="balanced"
 
 )
 
 
 pipeline = Pipeline(
+    memory="cache_dir",
 
     steps=[
 
